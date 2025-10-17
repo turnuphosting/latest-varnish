@@ -264,6 +264,13 @@ case "${1:-}" in
         echo "  --help, -h     Show this help message"
         echo "  --version, -v  Show version information"
         echo ""
+        echo "Environment Variables:"
+        echo "  DEBUG=1        Enable debug mode with verbose output"
+        echo "  AUTOMATED_INSTALL=1  Skip confirmation prompts (set automatically)"
+        echo ""
+        echo "Debug Installation:"
+        echo "  DEBUG=1 curl -fsSL https://raw.githubusercontent.com/turnuphosting/latest-varnish/main/quick-install.sh | bash"
+        echo ""
         exit 0
         ;;
     --version|-v)
