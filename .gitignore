@@ -1,0 +1,51 @@
+# Log files
+*.log
+/var/log/
+
+# Temporary files
+*.tmp
+*.temp
+*~
+.#*
+
+# Backup files
+*.bak
+*.backup
+backup_*/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Installation temporary files
+/tmp/
+install_*.tmp
+
+# Runtime files
+*.pid
+*.sock
+
+# Compiled files
+*.o
+*.so
+*.dylib
+
+# Package manager files
+node_modules/
+vendor/
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Cache directories
+.cache/
+cache/

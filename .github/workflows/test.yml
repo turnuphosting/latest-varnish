@@ -1,0 +1,68 @@
+name: Test Installation Scripts
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Test script syntax
+      run: |
+        echo "Testing installation script syntax..."
+        bash -n quick-install.sh
+        bash -n quick-uninstall.sh
+        bash -n install.sh
+        bash -n release.sh
+        
+        # Test individual plugin installers
+        bash -n install_whm_plugin.sh
+        bash -n install_cpanel_plugin.sh
+        
+    - name: Test help commands
+      run: |
+        echo "Testing help commands..."
+        bash quick-install.sh --help
+        bash quick-uninstall.sh --help
+        bash release.sh --help
+        
+    - name: Test version commands
+      run: |
+        echo "Testing version commands..."
+        bash quick-install.sh --version
+        bash quick-uninstall.sh --version
+        bash release.sh version
+        
+    - name: Validate Perl syntax
+      run: |
+        echo "Testing Perl module syntax..."
+        find shared_lib -name "*.pm" -exec perl -c {} \;
+        
+        echo "Testing CGI script syntax..."
+        find . -name "*.cgi" -exec perl -c {} \;
+        
+    - name: Check file permissions
+      run: |
+        echo "Checking execute permissions..."
+        test -x quick-install.sh || exit 1
+        test -x quick-uninstall.sh || exit 1
+        test -x install.sh || exit 1
+        test -x release.sh || exit 1
+        test -x install_whm_plugin.sh || exit 1
+        test -x install_cpanel_plugin.sh || exit 1
+        
+    - name: Validate templates
+      run: |
+        echo "Checking template files..."
+        find . -name "*.tt" -type f | while read file; do
+          echo "Checking $file..."
+          # Basic syntax check for Template Toolkit files
+          grep -q '\[%' "$file" && echo "Template syntax found in $file" || echo "Warning: No template syntax in $file"
+        done

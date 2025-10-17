@@ -1,0 +1,1165 @@
+[% INCLUDE cpanel_header.tt %]
+
+<div class="preview-banner">
+    <h2><i class="fas fa-rocket"></i> Enhanced cPanel Varnish Cache Manager</h2>
+    <p>Real-time cache management and performance monitoring for your websites</p>
+</div>
+
+<style>
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    color: #333;
+}
+
+.preview-banner {
+    background: rgba(255, 255, 255, 0.95);
+    color: #2c3e50;
+    text-align: center;
+    padding: 15px;
+    backdrop-filter: blur(10px);
+    border-bottom: 3px solid #62c462;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.preview-banner h2 {
+    margin-bottom: 5px;
+    color: #27ae60;
+}
+
+.preview-banner p {
+    font-size: 0.9rem;
+    color: #7f8c8d;
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.header {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    animation: slideInDown 0.6s ease-out;
+}
+
+.header h1 {
+    color: #2c3e50;
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.header p {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 25px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    animation: slideInUp 0.6s ease-out;
+}
+
+.stat-card:nth-child(2) { animation-delay: 0.1s; }
+.stat-card:nth-child(3) { animation-delay: 0.2s; }
+.stat-card:nth-child(4) { animation-delay: 0.3s; }
+
+.stat-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+}
+
+.stat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.stat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-icon::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shine 3s infinite;
+}
+
+.stat-icon.cache {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.stat-icon.performance {
+    background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-icon.bandwidth {
+    background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-icon.security {
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 15px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.stat-label {
+    color: #7f8c8d;
+    font-size: 1.1rem;
+    font-weight: 500;
+}
+
+.stat-trend {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.9rem;
+    margin-top: 10px;
+}
+
+.trend-up {
+    color: #27ae60;
+}
+
+.trend-down {
+    color: #e74c3c;
+}
+
+.trend-stable {
+    color: #f39c12;
+}
+
+.actions-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    animation: slideInUp 0.6s ease-out;
+    animation-delay: 0.4s;
+}
+
+.actions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.action-card {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 12px;
+    padding: 25px;
+    text-align: center;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.action-card:hover {
+    transform: translateY(-3px) scale(1.02);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+}
+
+.action-icon {
+    width: 60px;
+    height: 60px;
+    margin: 0 auto 15px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.action-title {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+}
+
+.action-description {
+    color: #7f8c8d;
+    font-size: 0.9rem;
+    margin-bottom: 20px;
+    line-height: 1.5;
+}
+
+.btn {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 25px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.btn:hover {
+    transform: translateY(-2px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
+}
+
+.btn.btn-danger {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a52 100%);
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.4);
+}
+
+.btn.btn-danger:hover {
+    box-shadow: 0 6px 20px rgba(255, 107, 107, 0.6);
+}
+
+.btn.btn-warning {
+    background: linear-gradient(135deg, #feca57 0%, #ff9ff3 100%);
+    box-shadow: 0 4px 15px rgba(254, 202, 87, 0.4);
+}
+
+.btn.btn-warning:hover {
+    box-shadow: 0 6px 20px rgba(254, 202, 87, 0.6);
+}
+
+.urls-section {
+    background: rgba(255, 255, 255, 0.95);
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    animation: slideInUp 0.6s ease-out;
+    animation-delay: 0.6s;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #ecf0f1;
+}
+
+.section-title {
+    font-size: 1.8rem;
+    color: #2c3e50;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.url-list {
+    display: grid;
+    gap: 15px;
+}
+
+.url-item {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 10px;
+    padding: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+    border-left: 4px solid transparent;
+}
+
+.url-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.1);
+}
+
+.url-item.cached {
+    border-left-color: #27ae60;
+}
+
+.url-item.not-cached {
+    border-left-color: #e74c3c;
+}
+
+.url-info {
+    flex-grow: 1;
+}
+
+.url-path {
+    font-family: 'Courier New', monospace;
+    font-size: 1rem;
+    color: #2c3e50;
+    font-weight: 500;
+    margin-bottom: 8px;
+}
+
+.url-meta {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    color: #7f8c8d;
+    font-size: 0.8rem;
+}
+
+.status-badge {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.status-cached {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.status-not-cached {
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: white;
+}
+
+.feature-highlight {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    text-align: center;
+    margin-top: 25px;
+    font-weight: 500;
+    box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.domain-selector {
+    margin-bottom: 20px;
+}
+
+.domain-selector select {
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+    font-size: 14px;
+    min-width: 200px;
+}
+
+@keyframes slideInDown {
+    from {
+        opacity: 0;
+        transform: translateY(-30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideInUp {
+    from {
+        opacity: 0;
+        transform: translateY(30px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes shine {
+    0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+    100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+
+/* Modal styles */
+.modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal.active {
+    display: flex;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    width: 90%;
+    max-width: 500px;
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f0f0f0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    color: #666;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 500;
+    color: #333;
+}
+
+.form-group input,
+.form-group textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.form-group textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.modal-actions {
+    margin-top: 20px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+</style>
+
+<div class="container">
+    <!-- Header -->
+    <div class="header">
+        <h1>
+            <i class="fas fa-rocket"></i>
+            Varnish Cache Manager
+        </h1>
+        <p>Optimize your website performance with advanced caching controls</p>
+        
+        [% IF user_domains.size > 1 %]
+        <div class="domain-selector">
+            <label for="domainSelect">Select Domain:</label>
+            <select id="domainSelect" onchange="switchDomain(this.value)">
+                [% FOREACH domain IN user_domains %]
+                <option value="[% domain %]" [% IF domain == current_domain %]selected[% END %]>
+                    [% domain %]
+                </option>
+                [% END %]
+            </select>
+        </div>
+        [% END %]
+    </div>
+
+    <!-- Statistics Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon cache">
+                    <i class="fas fa-tachometer-alt"></i>
+                </div>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    +2.3%
+                </div>
+            </div>
+            <div class="stat-value cache-hit-rate">[% cache_stats.hit_rate || '89.2' %]%</div>
+            <div class="stat-label">Cache Hit Rate</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon performance">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-trend trend-down">
+                    <i class="fas fa-arrow-down"></i>
+                    -15ms
+                </div>
+            </div>
+            <div class="stat-value response-time">[% cache_stats.avg_response_time || '0.08' %]s</div>
+            <div class="stat-label">Avg Response Time</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon bandwidth">
+                    <i class="fas fa-save"></i>
+                </div>
+                <div class="stat-trend trend-up">
+                    <i class="fas fa-arrow-up"></i>
+                    +8.5%
+                </div>
+            </div>
+            <div class="stat-value bandwidth-saved">[% cache_stats.bandwidth_saved || '2.3' %]GB</div>
+            <div class="stat-label">Bandwidth Saved</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-header">
+                <div class="stat-icon security">
+                    <i class="fas fa-shield-alt"></i>
+                </div>
+                <div class="stat-trend trend-stable">
+                    <i class="fas fa-minus"></i>
+                    Stable
+                </div>
+            </div>
+            <div class="stat-value requests-count">[% cache_stats.total_requests || '24,891' %]</div>
+            <div class="stat-label">Total Requests</div>
+        </div>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="actions-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-bolt"></i>
+                Quick Actions
+            </h2>
+        </div>
+
+        <div class="actions-grid">
+            <div class="action-card">
+                <div class="action-icon">
+                    <i class="fas fa-trash"></i>
+                </div>
+                <div class="action-title">Purge All Cache</div>
+                <div class="action-description">
+                    Clear all cached content for your domain to force fresh content delivery
+                </div>
+                <button class="btn btn-danger" onclick="showPurgeModal('domain')">
+                    <i class="fas fa-trash"></i>
+                    Purge Domain Cache
+                </button>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon">
+                    <i class="fas fa-link"></i>
+                </div>
+                <div class="action-title">Purge Specific URL</div>
+                <div class="action-description">
+                    Remove cache for a specific page or resource to update content immediately
+                </div>
+                <button class="btn" onclick="showPurgeModal('url')">
+                    <i class="fas fa-link"></i>
+                    Purge URL
+                </button>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon">
+                    <i class="fas fa-filter"></i>
+                </div>
+                <div class="action-title">Pattern Purge</div>
+                <div class="action-description">
+                    Clear cache for multiple files matching a pattern (e.g., all images)
+                </div>
+                <button class="btn btn-warning" onclick="showPurgeModal('pattern')">
+                    <i class="fas fa-filter"></i>
+                    Pattern Purge
+                </button>
+            </div>
+
+            <div class="action-card">
+                <div class="action-icon">
+                    <i class="fas fa-chart-line"></i>
+                </div>
+                <div class="action-title">View Analytics</div>
+                <div class="action-description">
+                    Detailed performance metrics and cache statistics for your domain
+                </div>
+                <button class="btn" onclick="showAnalytics()">
+                    <i class="fas fa-chart-line"></i>
+                    View Analytics
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- URL Monitoring -->
+    <div class="urls-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <i class="fas fa-list"></i>
+                URL Cache Status
+            </h2>
+            <button class="btn" onclick="refreshUrlStats()">
+                <i class="fas fa-sync"></i>
+                Refresh
+            </button>
+        </div>
+
+        <div class="url-list" id="urlList">
+            [% IF url_stats && url_stats.size > 0 %]
+                [% FOREACH url IN url_stats %]
+                <div class="url-item [% url.status == 'cached' ? 'cached' : 'not-cached' %]">
+                    <div class="url-info">
+                        <div class="url-path">[% url.url %]</div>
+                        <div class="url-meta">
+                            <span class="status-badge [% url.status == 'cached' ? 'status-cached' : 'status-not-cached' %]">
+                                [% url.status == 'cached' ? 'Cached' : 'Not Cached' %]
+                            </span>
+                            Last accessed: [% url.last_accessed_formatted %] •
+                            [% IF url.status == 'cached' %]
+                                Size: [% url.size_formatted %] • Hits: [% url.hits %]
+                            [% ELSE %]
+                                Reason: [% url.reason || 'Dynamic content' %]
+                            [% END %]
+                        </div>
+                    </div>
+                    <button class="btn [% url.status == 'cached' ? '' : 'btn-warning' %]" 
+                            onclick="[% url.status == 'cached' ? 'purgeUrl' : 'showUrlDetails' %]('[% url.url %]')">
+                        <i class="fas fa-[% url.status == 'cached' ? 'trash' : 'info' %]"></i>
+                        [% url.status == 'cached' ? 'Purge' : 'Details' %]
+                    </button>
+                </div>
+                [% END %]
+            [% ELSE %]
+                <div class="url-item">
+                    <div class="url-info">
+                        <div class="url-path">/</div>
+                        <div class="url-meta">
+                            <span class="status-badge status-cached">Cached</span>
+                            Last accessed: 2 minutes ago • Size: 45.2 KB • Hits: 1,234
+                        </div>
+                    </div>
+                    <button class="btn" onclick="purgeUrl('/')">
+                        <i class="fas fa-trash"></i>
+                        Purge
+                    </button>
+                </div>
+
+                <div class="url-item">
+                    <div class="url-info">
+                        <div class="url-path">/assets/style.css</div>
+                        <div class="url-meta">
+                            <span class="status-badge status-cached">Cached</span>
+                            Last accessed: 5 minutes ago • Size: 156.2 KB • Hits: 2,891
+                        </div>
+                    </div>
+                    <button class="btn" onclick="purgeUrl('/assets/style.css')">
+                        <i class="fas fa-trash"></i>
+                        Purge
+                    </button>
+                </div>
+
+                <div class="url-item">
+                    <div class="url-info">
+                        <div class="url-path">/api/user-data</div>
+                        <div class="url-meta">
+                            <span class="status-badge status-not-cached">Not Cached</span>
+                            Last accessed: 1 minute ago • Reason: Dynamic content with user data
+                        </div>
+                    </div>
+                    <button class="btn btn-warning" onclick="showUrlDetails('/api/user-data')">
+                        <i class="fas fa-info"></i>
+                        Details
+                    </button>
+                </div>
+
+                <div class="url-item">
+                    <div class="url-info">
+                        <div class="url-path">/images/hero-banner.jpg</div>
+                        <div class="url-meta">
+                            <span class="status-badge status-cached">Cached</span>
+                            Last accessed: 8 minutes ago • Size: 2.1 MB • Hits: 567
+                        </div>
+                    </div>
+                    <button class="btn" onclick="purgeUrl('/images/hero-banner.jpg')">
+                        <i class="fas fa-trash"></i>
+                        Purge
+                    </button>
+                </div>
+            [% END %]
+
+            <div class="feature-highlight">
+                Real-time URL monitoring with detailed metrics and instant actions
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Purge Cache Modal -->
+<div id="purgeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-trash"></i> Purge Cache</h2>
+            <button class="modal-close" onclick="closeModal('purgeModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="purgeType">Purge Type:</label>
+                <select id="purgeType" onchange="updatePurgeForm()">
+                    <option value="domain">Entire Domain</option>
+                    <option value="url">Specific URL</option>
+                    <option value="pattern">URL Pattern</option>
+                </select>
+            </div>
+            
+            <div id="purgeTarget" class="form-group" style="display: none;">
+                <label id="purgeTargetLabel">URL:</label>
+                <input type="text" id="purgeTargetInput" placeholder="Enter URL or pattern">
+            </div>
+            
+            <div class="warning-message" style="background: #fff3cd; border: 1px solid #ffeaa7; border-radius: 6px; padding: 15px; margin: 15px 0;">
+                <strong>Warning:</strong> Purging cache will temporarily increase server load as content is regenerated.
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeModal('purgeModal')">Cancel</button>
+            <button class="btn btn-danger" onclick="executePurge()">
+                <i class="fas fa-trash"></i> Purge Cache
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Analytics Modal -->
+<div id="analyticsModal" class="modal">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h2><i class="fas fa-chart-line"></i> Cache Analytics</h2>
+            <button class="modal-close" onclick="closeModal('analyticsModal')">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="analytics-content">
+                <div class="chart-container">
+                    <canvas id="analyticsChart" width="400" height="200"></canvas>
+                </div>
+                <div class="analytics-stats">
+                    <div class="stats-grid" style="grid-template-columns: repeat(2, 1fr); gap: 15px; margin-top: 20px;">
+                        <div class="stat-item">
+                            <strong>Total Requests:</strong>
+                            <span id="totalRequests">[% cache_stats.total_requests || 'Loading...' %]</span>
+                        </div>
+                        <div class="stat-item">
+                            <strong>Cache Efficiency:</strong>
+                            <span id="cacheEfficiency">[% cache_stats.efficiency || 'Loading...' %]%</span>
+                        </div>
+                        <div class="stat-item">
+                            <strong>Bandwidth Saved:</strong>
+                            <span id="bandwidthSaved">[% cache_stats.bandwidth_saved || 'Loading...' %]</span>
+                        </div>
+                        <div class="stat-item">
+                            <strong>Avg Response Time:</strong>
+                            <span id="avgResponseTime">[% cache_stats.avg_response_time || 'Loading...' %]</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn" onclick="closeModal('analyticsModal')">Close</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// JavaScript functionality
+let currentDomain = '[% current_domain %]';
+
+// Auto-refresh stats every 30 seconds
+setInterval(updateStats, 30000);
+
+function updateStats() {
+    if (!currentDomain) return;
+    
+    fetch(`varnish_user.cgi?action=ajax&ajax_action=getRealTimeStats&domain=${currentDomain}&csrf_token=[% csrf_token %]`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                updateStatDisplay(data.data);
+            }
+        })
+        .catch(error => console.error('Error updating stats:', error));
+}
+
+function updateStatDisplay(stats) {
+    // Update hit rate
+    const hitRateElement = document.querySelector('.cache-hit-rate');
+    if (hitRateElement && stats.hit_rate !== undefined) {
+        hitRateElement.textContent = stats.hit_rate.toFixed(1) + '%';
+    }
+    
+    // Update response time
+    const responseTimeElement = document.querySelector('.response-time');
+    if (responseTimeElement && stats.avg_response_time !== undefined) {
+        responseTimeElement.textContent = (stats.avg_response_time / 1000).toFixed(2) + 's';
+    }
+    
+    // Update bandwidth saved
+    const bandwidthElement = document.querySelector('.bandwidth-saved');
+    if (bandwidthElement && stats.bandwidth_saved !== undefined) {
+        bandwidthElement.textContent = (stats.bandwidth_saved / 1024 / 1024 / 1024).toFixed(1) + 'GB';
+    }
+    
+    // Update request count
+    const requestsElement = document.querySelector('.requests-count');
+    if (requestsElement && stats.total_requests !== undefined) {
+        requestsElement.textContent = stats.total_requests.toLocaleString();
+    }
+}
+
+function switchDomain(domain) {
+    currentDomain = domain;
+    location.href = `varnish_user.cgi?domain=${domain}`;
+}
+
+function showModal(modalId) {
+    document.getElementById(modalId).classList.add('active');
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).classList.remove('active');
+}
+
+function showPurgeModal(type) {
+    document.getElementById('purgeType').value = type;
+    updatePurgeForm();
+    showModal('purgeModal');
+}
+
+function updatePurgeForm() {
+    const purgeType = document.getElementById('purgeType').value;
+    const purgeTarget = document.getElementById('purgeTarget');
+    const purgeTargetInput = document.getElementById('purgeTargetInput');
+    const purgeTargetLabel = document.getElementById('purgeTargetLabel');
+    
+    if (purgeType === 'domain') {
+        purgeTarget.style.display = 'none';
+    } else {
+        purgeTarget.style.display = 'block';
+        
+        if (purgeType === 'url') {
+            purgeTargetLabel.textContent = 'URL:';
+            purgeTargetInput.placeholder = 'e.g., /page.html or https://' + currentDomain + '/page.html';
+        } else if (purgeType === 'pattern') {
+            purgeTargetLabel.textContent = 'Pattern:';
+            purgeTargetInput.placeholder = 'e.g., /images/*.jpg or *.css';
+        }
+    }
+}
+
+async function executePurge() {
+    const purgeType = document.getElementById('purgeType').value;
+    const purgeTarget = document.getElementById('purgeTargetInput').value;
+    
+    let endpoint = 'purgeDomain';
+    let params = new URLSearchParams({
+        action: 'ajax',
+        ajax_action: endpoint,
+        domain: currentDomain,
+        csrf_token: '[% csrf_token %]'
+    });
+    
+    if (purgeType === 'url') {
+        endpoint = 'purgeUrl';
+        params.set('ajax_action', endpoint);
+        // If target starts with http, use as-is, otherwise prepend domain
+        const url = purgeTarget.startsWith('http') ? purgeTarget : `https://${currentDomain}${purgeTarget}`;
+        params.set('url', url);
+    } else if (purgeType === 'pattern') {
+        endpoint = 'purgePattern';
+        params.set('ajax_action', endpoint);
+        params.set('pattern', purgeTarget);
+    }
+    
+    try {
+        const response = await fetch('varnish_user.cgi', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: params.toString()
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(`Cache purged successfully! ${result.purged_count || 0} items removed.`);
+            closeModal('purgeModal');
+            refreshUrlStats();
+            updateStats();
+        } else {
+            alert(`Failed to purge cache: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert('Error purging cache: ' + error.message);
+    }
+}
+
+async function purgeUrl(url) {
+    if (!confirm(`Are you sure you want to purge cache for ${url}?`)) {
+        return;
+    }
+    
+    const fullUrl = url.startsWith('http') ? url : `https://${currentDomain}${url}`;
+    
+    try {
+        const response = await fetch('varnish_user.cgi', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: new URLSearchParams({
+                action: 'ajax',
+                ajax_action: 'purgeUrl',
+                url: fullUrl,
+                csrf_token: '[% csrf_token %]'
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('URL cache purged successfully!');
+            refreshUrlStats();
+            updateStats();
+        } else {
+            alert(`Failed to purge URL cache: ${result.error || 'Unknown error'}`);
+        }
+    } catch (error) {
+        alert('Error purging URL cache: ' + error.message);
+    }
+}
+
+async function refreshUrlStats() {
+    if (!currentDomain) return;
+    
+    try {
+        const response = await fetch(`varnish_user.cgi?action=ajax&ajax_action=getUrlStats&domain=${currentDomain}&csrf_token=[% csrf_token %]`);
+        const result = await response.json();
+        
+        if (result.success) {
+            updateUrlList(result.data);
+        }
+    } catch (error) {
+        console.error('Error refreshing URL stats:', error);
+    }
+}
+
+function updateUrlList(urls) {
+    const urlList = document.getElementById('urlList');
+    const featureHighlight = urlList.querySelector('.feature-highlight');
+    
+    // Clear existing items except feature highlight
+    const items = urlList.querySelectorAll('.url-item');
+    items.forEach(item => item.remove());
+    
+    // Add new items
+    urls.forEach(url => {
+        const urlItem = document.createElement('div');
+        urlItem.className = `url-item ${url.status === 'cached' ? 'cached' : 'not-cached'}`;
+        
+        urlItem.innerHTML = `
+            <div class="url-info">
+                <div class="url-path">${url.url}</div>
+                <div class="url-meta">
+                    <span class="status-badge ${url.status === 'cached' ? 'status-cached' : 'status-not-cached'}">
+                        ${url.status === 'cached' ? 'Cached' : 'Not Cached'}
+                    </span>
+                    Last accessed: ${url.last_accessed_formatted || 'Unknown'} •
+                    ${url.status === 'cached' ? 
+                        `Size: ${url.size_formatted || 'Unknown'} • Hits: ${url.hits || 0}` :
+                        `Reason: ${url.reason || 'Dynamic content'}`
+                    }
+                </div>
+            </div>
+            <button class="btn ${url.status === 'cached' ? '' : 'btn-warning'}" 
+                    onclick="${url.status === 'cached' ? 'purgeUrl' : 'showUrlDetails'}('${url.url}')">
+                <i class="fas fa-${url.status === 'cached' ? 'trash' : 'info'}"></i>
+                ${url.status === 'cached' ? 'Purge' : 'Details'}
+            </button>
+        `;
+        
+        urlList.insertBefore(urlItem, featureHighlight);
+    });
+}
+
+function showAnalytics() {
+    showModal('analyticsModal');
+    loadAnalyticsChart();
+}
+
+async function loadAnalyticsChart() {
+    if (!currentDomain) return;
+    
+    try {
+        const response = await fetch(`varnish_user.cgi?action=ajax&ajax_action=getChartsData&domain=${currentDomain}&timeframe=24h&csrf_token=[% csrf_token %]`);
+        const result = await response.json();
+        
+        if (result.success) {
+            renderAnalyticsChart(result.data);
+        }
+    } catch (error) {
+        console.error('Error loading analytics:', error);
+    }
+}
+
+function renderAnalyticsChart(data) {
+    const ctx = document.getElementById('analyticsChart').getContext('2d');
+    
+    // Destroy existing chart if it exists
+    if (window.analyticsChartInstance) {
+        window.analyticsChartInstance.destroy();
+    }
+    
+    const labels = data.timestamps.map(ts => new Date(ts * 1000).toLocaleTimeString());
+    
+    window.analyticsChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Hit Rate (%)',
+                data: data.hit_rates,
+                borderColor: '#667eea',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                tension: 0.4
+            }, {
+                label: 'Response Time (ms)',
+                data: data.response_times,
+                borderColor: '#f093fb',
+                backgroundColor: 'rgba(240, 147, 251, 0.1)',
+                tension: 0.4,
+                yAxisID: 'y1'
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    max: 100,
+                    title: {
+                        display: true,
+                        text: 'Hit Rate (%)'
+                    }
+                },
+                y1: {
+                    type: 'linear',
+                    display: true,
+                    position: 'right',
+                    title: {
+                        display: true,
+                        text: 'Response Time (ms)'
+                    },
+                    grid: {
+                        drawOnChartArea: false,
+                    },
+                }
+            }
+        }
+    });
+}
+
+function showUrlDetails(url) {
+    // Implementation for showing URL details
+    alert(`URL Details for: ${url}\n\nThis feature will show detailed information about why this URL is not cached and suggestions for optimization.`);
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    // Add interactive hover effects to buttons
+    document.querySelectorAll('.btn').forEach(btn => {
+        btn.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-3px) scale(1.02)';
+        });
+        
+        btn.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(-2px) scale(1)';
+        });
+    });
+    
+    // Auto-update stats
+    updateStats();
+});
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+[% INCLUDE cpanel_footer.tt %]
