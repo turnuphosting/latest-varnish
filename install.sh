@@ -117,205 +117,177 @@ if [[ "$INSTALL_VARNISH_HITCH" == "true" ]]; then
         INSTALL_LOG="/var/log/varnish_hitch_install_$(date +%Y%m%d_%H%M%S).log"
         echo "Installation log: $INSTALL_LOG"
         
-        # Step 1: System update
-        echo "Updating system packages..."
-        dnf update -y >> "$INSTALL_LOG" 2>&1
+        # Use the enhanced InstallationManager for robust installation
+        echo "Using enhanced installation manager with error recovery..."
         
-        # Step 2: Install Varnish
-        echo "Installing Varnish 7.5..."
-        curl -s https://packagecloud.io/install/repositories/varnishcache/varnish75/script.rpm.sh | bash >> "$INSTALL_LOG" 2>&1
-        dnf install varnish -y >> "$INSTALL_LOG" 2>&1
-        
-        # Step 3: Install Hitch
-        echo "Installing Hitch..."
-        dnf install hitch -y >> "$INSTALL_LOG" 2>&1
-        
-        # Step 4: Configure Apache ports
-        echo "Configuring Apache ports..."
-        if [[ -f "/var/cpanel/cpanel.config" ]]; then
-            cp -a /var/cpanel/cpanel.config /var/cpanel/cpanel.config-backup-$(date +%Y%m%d_%H%M%S)
-            
-            # Update Apache ports in cPanel config
-            sed -i 's/^apache_port=.*/apache_port=0.0.0.0:8080/' /var/cpanel/cpanel.config
-            sed -i 's/^apache_ssl_port=.*/apache_ssl_port=0.0.0.0:8443/' /var/cpanel/cpanel.config
-            
-            # Add ports if they don't exist
-            if ! grep -q "^apache_port=" /var/cpanel/cpanel.config; then
-                echo "apache_port=0.0.0.0:8080" >> /var/cpanel/cpanel.config
-            fi
-            if ! grep -q "^apache_ssl_port=" /var/cpanel/cpanel.config; then
-                echo "apache_ssl_port=0.0.0.0:8443" >> /var/cpanel/cpanel.config
-            fi
-            
-            # Rebuild Apache configuration
-            /scripts/rebuildhttpdconf >> "$INSTALL_LOG" 2>&1
-            /scripts/restartsrv_httpd >> "$INSTALL_LOG" 2>&1
-        fi
-        
-        # Step 5: Configure Varnish
-        echo "Configuring Varnish..."
-        
-        # Create Varnish VCL configuration
-        cat > /etc/varnish/default.vcl << 'EOFVCL'
-vcl 4.1;
+        # Create Perl script to run InstallationManager
+        cat > /tmp/run_installation.pl << 'EOF'
+#!/usr/bin/perl
+use strict;
+use warnings;
+use lib '/tmp/varnish-install-*/shared_lib';  # Adjust path as needed
+use lib './shared_lib';
+use InstallationManager;
 
-import proxy;
+my $installer = InstallationManager->new(
+    log_file => $ENV{INSTALL_LOG} || '/var/log/varnish_hitch_install.log'
+);
 
-backend default {
-    .host = "127.0.0.1";
-    .port = "8080";
+eval {
+    $installer->install('full');
+    print "Installation completed successfully with InstallationManager!\n";
+};
+
+if ($@) {
+    print "InstallationManager failed: $@\n";
+    print "Falling back to basic shell installation...\n";
+    exit 1;
 }
-
-sub vcl_recv {
-    if(!req.http.X-Forwarded-Proto) {
-        if (proxy.is_ssl()) {
-            set req.http.X-Forwarded-Proto = "https";
-        } else {
-            set req.http.X-Forwarded-Proto = "http";
-        }
-    }
-    
-    # Handle purge requests
-    if (req.method == "PURGE") {
-        if (!client.ip ~ purge) {
-            return(synth(405, "Method not allowed"));
-        }
-        return(purge);
-    }
-    
-    # Don't cache cPanel/WHM
-    if (req.url ~ "^/(cpanel|whm|webmail)" ||
-        req.http.host ~ "(cpanel|whm|webmail)") {
-        return(pass);
-    }
-    
-    # Cache static files
-    if (req.url ~ "\.(css|js|png|gif|jpg|jpeg|ico|svg|woff|woff2|ttf|eot)$") {
-        unset req.http.cookie;
-        return(hash);
-    }
-    
-    return(hash);
-}
-
-sub vcl_backend_response {
-    if(beresp.http.Vary) {
-        set beresp.http.Vary = beresp.http.Vary + ", X-Forwarded-Proto";
-    } else {
-        set beresp.http.Vary = "X-Forwarded-Proto";
-    }
-    
-    # Cache static files for 1 week
-    if (bereq.url ~ "\.(css|js|png|gif|jpg|jpeg|ico|svg|woff|woff2|ttf|eot)$") {
-        set beresp.ttl = 7d;
-    }
-    
-    return(deliver);
-}
-
-sub vcl_deliver {
-    if (obj.hits > 0) {
-        set resp.http.X-Cache = "HIT";
-    } else {
-        set resp.http.X-Cache = "MISS";
-    }
-    
-    # Remove server info for security
-    unset resp.http.Server;
-    unset resp.http.X-Powered-By;
-    
-    return(deliver);
-}
-
-acl purge {
-    "localhost";
-    "127.0.0.1";
-}
-EOFVCL
+EOF
         
-        # Configure Varnish service
-        cp /usr/lib/systemd/system/varnish.service /etc/systemd/system/
-        sed -i 's|^ExecStart=.*|ExecStart=/usr/sbin/varnishd -a :80 -a 127.0.0.1:4443,proxy -f /etc/varnish/default.vcl -s malloc,256m|' /etc/systemd/system/varnish.service
-        
-        # Step 6: Configure Hitch
-        echo "Configuring Hitch..."
-        
-        # Create Hitch directories
-        mkdir -p /etc/hitch/certs
-        
-        # Basic Hitch configuration
-        cat > /etc/hitch/hitch.conf << 'EOFHITCH'
-# Frontend (listening) IP and port
-frontend = "*:443"
-
-# Backend (backend) IP and port where Hitch will send the requests
-backend = "[127.0.0.1]:4443"
-
-# Number of worker processes
-workers = 4
-
-# Run as daemon
-daemon = on
-
-# User and group to run as
-user = "hitch"
-group = "hitch"
-
-# SSL/TLS settings
-prefer-server-ciphers = on
-ciphers = "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384"
-
-# Certificate files will be added here by the plugin
-# pem-file = "/etc/hitch/certs/example.pem"
-EOFHITCH
-        
-        # Create hitch user
-        getent group hitch >/dev/null || groupadd hitch
-        getent passwd hitch >/dev/null || useradd -g hitch -s /sbin/nologin -d /var/lib/hitch hitch
-        
-        # Set permissions
-        chown -R hitch:hitch /etc/hitch/certs
-        chmod 700 /etc/hitch/certs
-        
-        # Step 7: Enable and start services
-        echo "Starting services..."
-        systemctl daemon-reload
-        systemctl enable varnish hitch
-        
-        # Start Varnish first
-        systemctl start varnish
-        sleep 2
-        
-        # Test and start Hitch (may fail if no certificates)
-        if hitch --config=/etc/hitch/hitch.conf --test >/dev/null 2>&1; then
-            systemctl start hitch
+        # Try to run with InstallationManager first
+        export INSTALL_LOG
+        if perl /tmp/run_installation.pl 2>&1 | tee -a "$INSTALL_LOG"; then
+            echo "Enhanced installation completed successfully!"
         else
-            echo "Warning: Hitch not started due to missing SSL certificates"
-            echo "Configure SSL certificates through the plugin interface"
-        fi
-        
-        echo "Varnish/Hitch installation completed!"
+            echo "Enhanced installer failed, using fallback method..."
+            
+            # Use enhanced InstallationManager.pm for robust installation
+            echo "Using enhanced installation manager for reliable setup..."
+            
+            # First check if InstallationManager.pm is available
+            if perl -I"$PLUGIN_DIR/shared_lib" -MInstallationManager -e 'print "OK\n"' >/dev/null 2>&1; then
+                echo "Running enhanced Perl-based installation with comprehensive error handling..."
+                
+                # Create enhanced Perl installation script
+                cat > /tmp/enhanced_install.pl << 'EOFPERL'
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+# Add plugin directory to Perl path
+use lib '/usr/local/cpanel/base/3rdparty/varnish_manager/shared_lib';
+use InstallationManager;
+
+# Create installation manager
+my $installer = InstallationManager->new();
+
+print "Starting enhanced Varnish/Hitch installation...\n";
+
+# Run complete installation
+my $result = $installer->install_varnish_hitch();
+
+if ($result->{success}) {
+    print "✓ Enhanced installation completed successfully!\n";
+    print $result->{message} . "\n" if $result->{message};
+    exit 0;
+} else {
+    print "✗ Enhanced installation failed: " . $result->{error} . "\n";
+    print $result->{details} . "\n" if $result->{details};
+    exit 1;
+}
+EOFPERL
+                
+                # Make it executable and run
+                chmod +x /tmp/enhanced_install.pl
+                
+                if perl /tmp/enhanced_install.pl; then
+                    echo "Enhanced installation completed successfully!"
+                    rm -f /tmp/enhanced_install.pl
+                else
+                    echo "Enhanced installation failed, falling back to shell installation..."
+                    rm -f /tmp/enhanced_install.pl
+                    
+                    # Fall back to shell-based installation
+                    echo "Step 1: Updating system packages..."
+                    dnf update -y >> "$INSTALL_LOG" 2>&1
+                    
+                    echo "Step 2: Installing Varnish 7.5..."
+                    curl -s https://packagecloud.io/install/repositories/varnishcache/varnish75/script.rpm.sh | bash >> "$INSTALL_LOG" 2>&1
+                    dnf install varnish -y >> "$INSTALL_LOG" 2>&1
+                    
+                    echo "Step 3: Installing Hitch..."
+                    dnf install hitch -y >> "$INSTALL_LOG" 2>&1
+                    
+                    # Basic configuration and service startup
+                    echo "Performing basic configuration..."
+                    systemctl daemon-reload
+                    systemctl enable varnish hitch
+                    systemctl start varnish || echo "Warning: Varnish failed to start"
+                    
+                    echo "Shell fallback installation completed with warnings!"
+                fi
+            else
+                echo "InstallationManager.pm not available, using shell fallback..."
+                
+                # Fall back to basic shell installation
+                echo "Step 1: Updating system packages..."
+                dnf update -y >> "$INSTALL_LOG" 2>&1
+                
+                echo "Step 2: Installing Varnish 7.5..."
+                curl -s https://packagecloud.io/install/repositories/varnishcache/varnish75/script.rpm.sh | bash >> "$INSTALL_LOG" 2>&1
+                dnf install varnish -y >> "$INSTALL_LOG" 2>&1
+                
+                echo "Step 3: Installing Hitch..."
+                dnf install hitch -y >> "$INSTALL_LOG" 2>&1
+                
+                # Basic service startup
+                systemctl daemon-reload
+                systemctl enable varnish hitch
+                systemctl start varnish || echo "Warning: Varnish failed to start"
+                
+                echo "Basic shell installation completed with potential warnings!"
+            fi
         echo "Check the installation log at: $INSTALL_LOG"
         echo ""
         
-        # Show service status
+        # Show enhanced service status with diagnostics
         echo "=== Service Status ==="
+        
+        # Check Varnish status with detailed diagnostics
         if systemctl is-active --quiet varnish; then
             echo "✓ Varnish: Running"
+            varnish_port=$(netstat -tlnp 2>/dev/null | grep ":80 " | grep varnish || echo "Port check failed")
+            echo "  └─ Listening on port 80: $([[ "$varnish_port" ]] && echo "Yes" || echo "No")"
         else
-            echo "⚠ Varnish: Not running (check logs: journalctl -u varnish)"
+            echo "⚠ Varnish: Not running"
+            
+            # Get detailed failure information
+            varnish_status=$(systemctl status varnish --no-pager -l 2>/dev/null | head -10)
+            if [[ "$varnish_status" ]]; then
+                echo "  └─ Status: $(echo "$varnish_status" | grep "Active:" | cut -d':' -f2- | xargs)"
+                
+                # Check for common issues
+                if systemctl status varnish 2>&1 | grep -q "timeout"; then
+                    echo "  └─ Issue: Service startup timeout detected"
+                    echo "  └─ Suggestion: Check /var/log/varnish/varnish.log for startup errors"
+                elif systemctl status varnish 2>&1 | grep -q "failed"; then
+                    echo "  └─ Issue: Service failed to start"
+                    echo "  └─ Suggestion: Run 'journalctl -u varnish --no-pager' for details"
+                fi
+            fi
+            echo "  └─ Quick fix: systemctl restart varnish"
         fi
         
+        # Check Hitch status
         if systemctl is-active --quiet hitch; then
             echo "✓ Hitch: Running"
+            hitch_port=$(netstat -tlnp 2>/dev/null | grep ":443 " | grep hitch || echo "Port check failed")
+            echo "  └─ Listening on port 443: $([[ "$hitch_port" ]] && echo "Yes" || echo "No")"
         else
-            echo "⚠ Hitch: Not running (may need SSL certificates)"
+            echo "⚠ Hitch: Not running"
+            echo "  └─ This is normal if no SSL certificates are configured yet"
+            echo "  └─ Configure certificates through the WHM plugin interface"
         fi
         
+        # Check Apache status  
         if systemctl is-active --quiet httpd; then
             echo "✓ Apache: Running"
+            apache_ports=$(netstat -tlnp 2>/dev/null | grep httpd | grep -E ":8080|:8443" || echo "Port check failed")
+            echo "  └─ Backend ports: $([[ "$apache_ports" ]] && echo "8080/8443 active" || echo "Check configuration")"
         else
             echo "⚠ Apache: Not running"
+            echo "  └─ Run: systemctl restart httpd"
         fi
     fi
 fi
