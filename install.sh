@@ -29,24 +29,37 @@ fi
 
 # Check operating system
 if [[ ! -f "/etc/redhat-release" ]] && [[ ! -f "/etc/centos-release" ]]; then
-    echo "Warning: This installer is designed for RHEL/CentOS systems"
-    echo "Continue anyway? (y/N)"
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        exit 1
+    if [[ "${AUTOMATED_INSTALL:-0}" == "1" ]]; then
+        echo "Warning: This installer is designed for RHEL/CentOS systems"
+        echo "🤖 Automated installation: Continuing anyway..."
+    else
+        echo "Warning: This installer is designed for RHEL/CentOS systems"
+        echo "Continue anyway? (y/N)"
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
     fi
 fi
 
 echo "System requirements check passed!"
 echo ""
 
-# Installation options
-echo "Select installation option:"
-echo "1) Install plugins only (manual Varnish/Hitch setup)"
-echo "2) Install everything (plugins + automated Varnish/Hitch setup)"
-echo "3) Install Varnish/Hitch only (no plugins)"
-echo ""
-read -p "Enter your choice (1-3): " choice
+# Check for automated installation
+if [[ "${AUTOMATED_INSTALL:-0}" == "1" ]]; then
+    echo "🤖 Automated installation detected"
+    choice="${INSTALL_OPTION:-2}"
+    echo "Using installation option: $choice"
+    echo ""
+else
+    # Installation options
+    echo "Select installation option:"
+    echo "1) Install plugins only (manual Varnish/Hitch setup)"
+    echo "2) Install everything (plugins + automated Varnish/Hitch setup)"
+    echo "3) Install Varnish/Hitch only (no plugins)"
+    echo ""
+    read -p "Enter your choice (1-3): " choice
+fi
 
 case $choice in
     1)
@@ -78,17 +91,27 @@ if [[ "$INSTALL_VARNISH_HITCH" == "true" ]]; then
     echo "Installing Varnish and Hitch"
     echo "==========================================="
     echo ""
-    echo "WARNING: This will modify your Apache configuration!"
-    echo "Apache will be moved to ports 8080 (HTTP) and 8443 (HTTPS)"
-    echo "Varnish will handle port 80, Hitch will handle port 443"
-    echo ""
-    echo "This may cause temporary downtime. Continue? (y/N)"
-    read -r response
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        echo "Skipping Varnish/Hitch installation"
-        INSTALL_VARNISH_HITCH=false
+    if [[ "${AUTOMATED_INSTALL:-0}" == "1" ]]; then
+        echo "🤖 Automated installation: Starting Varnish/Hitch installation..."
+        echo "Apache will be reconfigured to ports 8080 (HTTP) and 8443 (HTTPS)"
+        echo "Varnish will handle port 80, Hitch will handle port 443"
+        echo ""
     else
-        echo "Starting Varnish/Hitch installation..."
+        echo "WARNING: This will modify your Apache configuration!"
+        echo "Apache will be moved to ports 8080 (HTTP) and 8443 (HTTPS)"
+        echo "Varnish will handle port 80, Hitch will handle port 443"
+        echo ""
+        echo "This may cause temporary downtime. Continue? (y/N)"
+        read -r response
+        if [[ ! "$response" =~ ^[Yy]$ ]]; then
+            echo "Skipping Varnish/Hitch installation"
+            INSTALL_VARNISH_HITCH=false
+        else
+            echo "Starting Varnish/Hitch installation..."
+        fi
+    fi
+    
+    if [[ "$INSTALL_VARNISH_HITCH" != "false" ]]; then
         
         # Create installation log
         INSTALL_LOG="/var/log/varnish_hitch_install_$(date +%Y%m%d_%H%M%S).log"
