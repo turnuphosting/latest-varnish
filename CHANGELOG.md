@@ -5,6 +5,26 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-10-17
+
+### Added
+- **Enhanced Error Diagnostics**: Comprehensive Varnish failure analysis including VCL syntax, port conflicts, and permissions
+- **Service Recovery**: Automatic retry mechanism for failed service startups with extended timeouts  
+- **Detailed Status Reporting**: Visual service status indicators with ✓/✗ symbols and troubleshooting instructions
+- **Graceful Failure Handling**: Installation continues even if some services fail, providing recovery guidance
+- **Port Conflict Detection**: Automatic detection and reporting of port usage conflicts
+
+### Changed
+- **Robust Service Startup**: Replaced hard failures with graceful error handling and diagnostics
+- **Better User Experience**: Clear feedback on service states with actionable troubleshooting steps  
+- **Installation Resilience**: No longer exits on service failures, completes installation with warnings
+- **Enhanced Logging**: More detailed logging for service startup issues and recovery attempts
+
+### Fixed
+- **Varnish Timeout Issues**: Service startup timeouts now trigger diagnostics and retry attempts
+- **Installation Robustness**: Installation completes successfully even with service startup problems
+- **Error Visibility**: Users receive clear information about any service issues and how to resolve them
+
 ## [1.0.3] - 2025-10-17
 
 ### Fixed
