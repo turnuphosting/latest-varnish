@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.3] - 2025-10-17
+
+### Fixed
+- **Automated Installation**: Fixed install.sh not respecting AUTOMATED_INSTALL environment variable
+- **Interactive Prompts**: Removed all user input prompts when running in automated mode
+- **One-Line Installer**: Quick-install.sh now properly triggers fully automated installation
+
+### Added
+- **Automation Indicators**: Added 🤖 emoji indicators for automated installation steps
+- **Environment Detection**: Proper detection and handling of AUTOMATED_INSTALL and INSTALL_OPTION variables
+- **Non-Interactive Mode**: Complete hands-off installation for CI/CD and automated deployments
+
 ## [1.0.2] - 2025-10-17
 
 ### Fixed

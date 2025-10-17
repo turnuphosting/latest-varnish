@@ -11,7 +11,7 @@ set -euo pipefail
 
 # Configuration
 LOG_FILE="/var/log/varnish_quick_uninstall_$(date +%Y%m%d_%H%M%S).log"
-VERSION="1.0.2"
+VERSION="1.0.3"
 BACKUP_DIR="/root/varnish_backup_$(date +%Y%m%d_%H%M%S)"
 
 # Colors for output
