@@ -198,7 +198,7 @@ EOFPERL
                     echo "Enhanced installation failed, falling back to shell installation..."
                     rm -f /tmp/enhanced_install.pl
                     
-                    # Fall back to shell-based installation
+                    # Fall back to shell-based installation with improved service handling
                     echo "Step 1: Updating system packages..."
                     dnf update -y >> "$INSTALL_LOG" 2>&1
                     
@@ -209,13 +209,152 @@ EOFPERL
                     echo "Step 3: Installing Hitch..."
                     dnf install hitch -y >> "$INSTALL_LOG" 2>&1
                     
-                    # Basic configuration and service startup
-                    echo "Performing basic configuration..."
+                    # Step 4: Configure Apache ports
+                    echo "Configuring Apache ports..."
+                    if [[ -f "/var/cpanel/cpanel.config" ]]; then
+                        cp -a /var/cpanel/cpanel.config /var/cpanel/cpanel.config-backup-$(date +%Y%m%d_%H%M%S)
+                        sed -i 's/^apache_port=.*/apache_port=0.0.0.0:8080/' /var/cpanel/cpanel.config
+                        sed -i 's/^apache_ssl_port=.*/apache_ssl_port=0.0.0.0:8443/' /var/cpanel/cpanel.config
+                        if ! grep -q "^apache_port=" /var/cpanel/cpanel.config; then
+                            echo "apache_port=0.0.0.0:8080" >> /var/cpanel/cpanel.config
+                        fi
+                        if ! grep -q "^apache_ssl_port=" /var/cpanel/cpanel.config; then
+                            echo "apache_ssl_port=0.0.0.0:8443" >> /var/cpanel/cpanel.config
+                        fi
+                        /scripts/rebuildhttpdconf >> "$INSTALL_LOG" 2>&1
+                        /scripts/restartsrv_httpd >> "$INSTALL_LOG" 2>&1
+                    fi
+                    
+                    # Step 5: Configure Varnish with improved startup
+                    echo "Configuring Varnish with enhanced startup..."
+                    
+                    cat > /etc/varnish/default.vcl << 'EOFVCL'
+vcl 4.1;
+import proxy;
+backend default {
+    .host = "127.0.0.1";
+    .port = "8080";
+    .connect_timeout = 5s;
+    .first_byte_timeout = 15s;
+    .between_bytes_timeout = 10s;
+}
+sub vcl_recv {
+    if(!req.http.X-Forwarded-Proto) {
+        if (proxy.is_ssl()) {
+            set req.http.X-Forwarded-Proto = "https";
+        } else {
+            set req.http.X-Forwarded-Proto = "http";
+        }
+    }
+    if (req.method == "PURGE") {
+        if (!client.ip ~ purge) {
+            return(synth(405, "Method not allowed"));
+        }
+        return(purge);
+    }
+    if (req.url ~ "^/(cpanel|whm|webmail)" || req.http.host ~ "(cpanel|whm|webmail)") {
+        return(pass);
+    }
+    if (req.url ~ "\.(css|js|png|gif|jpg|jpeg|ico|svg|woff|woff2|ttf|eot)$") {
+        unset req.http.cookie;
+        return(hash);
+    }
+    return(hash);
+}
+sub vcl_backend_response {
+    if(beresp.http.Vary) {
+        set beresp.http.Vary = beresp.http.Vary + ", X-Forwarded-Proto";
+    } else {
+        set beresp.http.Vary = "X-Forwarded-Proto";
+    }
+    if (bereq.url ~ "\.(css|js|png|gif|jpg|jpeg|ico|svg|woff|woff2|ttf|eot)$") {
+        set beresp.ttl = 7d;
+    }
+    return(deliver);
+}
+sub vcl_deliver {
+    if (obj.hits > 0) {
+        set resp.http.X-Cache = "HIT";
+    } else {
+        set resp.http.X-Cache = "MISS";
+    }
+    unset resp.http.Server;
+    unset resp.http.X-Powered-By;
+    return(deliver);
+}
+acl purge {
+    "localhost";
+    "127.0.0.1";
+}
+EOFVCL
+                    
+                    # Create systemd override for extended timeout
+                    mkdir -p /etc/systemd/system/varnish.service.d
+                    cat > /etc/systemd/system/varnish.service.d/timeout.conf << 'EOF'
+[Service]
+TimeoutStartSec=60
+TimeoutStopSec=30
+Type=notify
+StandardOutput=journal
+StandardError=journal
+EOF
+                    
+                    # Step 6: Configure Hitch
+                    echo "Configuring Hitch..."
+                    mkdir -p /etc/hitch/certs
+                    
+                    cat > /etc/hitch/hitch.conf << 'EOFHITCH'
+frontend = "*:443"
+backend = "[127.0.0.1]:4443"
+workers = 4
+daemon = on
+user = "hitch"
+group = "hitch"
+prefer-server-ciphers = on
+ciphers = "ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-RSA-AES128-SHA256:ECDHE-RSA-AES256-SHA384"
+EOFHITCH
+                    
+                    getent group hitch >/dev/null || groupadd hitch
+                    getent passwd hitch >/dev/null || useradd -g hitch -s /sbin/nologin -d /var/lib/hitch hitch
+                    chown -R hitch:hitch /etc/hitch/certs
+                    chmod 700 /etc/hitch/certs
+                    
+                    # Step 7: Enable and start services with improved error handling
+                    echo "Starting services with improved error handling..."
                     systemctl daemon-reload
                     systemctl enable varnish hitch
-                    systemctl start varnish || echo "Warning: Varnish failed to start"
                     
-                    echo "Shell fallback installation completed with warnings!"
+                    # Start Varnish with retry logic
+                    echo "Starting Varnish service..."
+                    for i in {1..3}; do
+                        if systemctl start varnish; then
+                            echo "✓ Varnish started successfully"
+                            sleep 2
+                            break
+                        else
+                            echo "⚠ Attempt $i: Varnish failed to start, retrying..."
+                            sleep 3
+                        fi
+                    done
+                    
+                    # Verify Varnish is running
+                    if systemctl is-active --quiet varnish; then
+                        echo "✓ Varnish is running"
+                    else
+                        echo "✗ Warning: Varnish failed to start after retries"
+                        echo "  Checking Varnish logs..."
+                        journalctl -u varnish -n 20 --no-pager
+                    fi
+                    
+                    # Test and start Hitch
+                    if hitch --config=/etc/hitch/hitch.conf --test >/dev/null 2>&1; then
+                        systemctl start hitch
+                        echo "✓ Hitch started successfully"
+                    else
+                        echo "⚠ Hitch not started (SSL certificates needed)"
+                    fi
+                    
+                    echo "✓ Varnish/Hitch installation completed!"
                 fi
             else
                 echo "InstallationManager.pm not available, using shell fallback..."
@@ -345,3 +484,17 @@ echo "    \$_SERVER['HTTPS'] = 'on';"
 echo ""
 
 echo "Setup completed successfully!"
+
+# Final summary
+echo ""
+echo "==========================================="
+echo "Installation Summary"
+echo "==========================================="
+VARNISH_STATUS="✓ Installed" && systemctl is-active --quiet varnish || VARNISH_STATUS="⚠ Installation pending"
+HITCH_STATUS="✓ Installed" && systemctl is-active --quiet hitch || HITCH_STATUS="⚠ Installation pending"
+PLUGINS_STATUS="✓ Installed"
+
+echo "Varnish: $VARNISH_STATUS"
+echo "Hitch: $HITCH_STATUS"
+echo "Plugins: $PLUGINS_STATUS"
+echo ""

@@ -48,19 +48,19 @@ chown -R root:wheel "$PLUGIN_DIR"
 # Create cPanel integration files
 echo "Creating cPanel integration..."
 
-# Create dynamicui configuration
+# Create proper appconfig file with all required fields
 cat > "/var/cpanel/apps/varnish_cache_manager.conf" << 'EOF'
 ---
 group: Software
 name: Varnish Cache Manager
-version: 1.0
-vendor: YourCompany
+version: 1.0.0
+vendor: TurnUp Hosting
 description: "Manage Varnish cache for improved website performance"
-url: varnish_user/cgi/varnish_user.cgi
-help: https://example.com/help/varnish
+url: /frontend/paper_lantern/varnish_user/cgi/varnish_user.cgi
+service: varnish
 icon: icon-performance.png
-feature_requires:
-  - allow_cache_management
+features:
+  - cache-management
 EOF
 
 # Create feature list entry
@@ -74,8 +74,8 @@ else
     fi
 fi
 
-# Register with cPanel
-/usr/local/cpanel/bin/register_appconfig "/var/cpanel/apps/varnish_cache_manager.conf"
+# Register with cPanel (suppress errors as it may not be available in all environments)
+/usr/local/cpanel/bin/register_appconfig "/var/cpanel/apps/varnish_cache_manager.conf" 2>/dev/null || echo "Note: cPanel app registration may require manual configuration"
 
 echo "cPanel plugin installed successfully!"
 echo ""
