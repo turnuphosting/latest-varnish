@@ -9,6 +9,12 @@
 
 set -euo pipefail
 
+# Enable debug mode if requested
+if [[ "${DEBUG:-0}" == "1" ]]; then
+    set -x
+    echo "Debug mode enabled"
+fi
+
 # Configuration
 REPO_URL="https://github.com/turnuphosting/latest-varnish.git"
 REPO_BRANCH="main"
@@ -103,24 +109,32 @@ download_files() {
         if [[ ! -f "$file" ]]; then
             error "Essential file '$file' not found in repository."
         fi
+        log "✓ Found: $file"
     done
     
-    log "Files downloaded successfully."
+    log "All essential files verified successfully."
 }
 
 # Run the installation
 run_installation() {
     log "Starting Varnish + Hitch + Plugins installation..."
     
-    # Make installation script executable
-    chmod +x install.sh
+    # Make all shell scripts executable
+    chmod +x *.sh
+    chmod +x install_*.sh
+    
+    # Verify the main installation script is executable
+    if [[ ! -x "install.sh" ]]; then
+        error "Failed to make install.sh executable"
+    fi
     
     # Set environment variable for automated installation
     export AUTOMATED_INSTALL=1
     export INSTALL_OPTION=2  # Complete installation with Varnish + Hitch + Plugins
     
-    # Run the main installer
-    if ! ./install.sh; then
+    # Run the main installer with verbose output
+    log "Executing main installation script..."
+    if ! bash -x ./install.sh 2>&1 | tee -a "$LOG_FILE"; then
         error "Installation failed. Check the log file at $LOG_FILE for details."
     fi
     
