@@ -20,7 +20,7 @@ REPO_URL="https://github.com/turnuphosting/latest-varnish.git"
 REPO_BRANCH="main"
 INSTALL_DIR="/tmp/varnish-install-$$"
 LOG_FILE="/var/log/varnish_quick_install_$(date +%Y%m%d_%H%M%S).log"
-VERSION="1.0.1"
+VERSION="1.0.2"
 
 # Colors for output
 RED='\033[0;31m'
