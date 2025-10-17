@@ -627,7 +627,21 @@ sub start_services {
     $self->log("Starting Varnish");
     my $varnish_output = `systemctl start varnish 2>&1`;
     if ($? != 0) {
-        die "Failed to start Varnish: $varnish_output";
+        $self->log("Failed to start Varnish: $varnish_output");
+        $self->log("Attempting Varnish diagnostics...");
+        $self->diagnose_varnish_failure();
+        
+        # Try to start again with a longer timeout
+        $self->log("Retrying Varnish startup...");
+        system("systemctl daemon-reload");
+        sleep 5;
+        $varnish_output = `timeout 60 systemctl start varnish 2>&1`;
+        if ($? != 0) {
+            $self->log("ERROR: Varnish failed to start after retry: $varnish_output");
+            $self->log("Continuing with installation - Varnish can be started manually later");
+        } else {
+            $self->log("Varnish started successfully on retry");
+        }
     }
     
     # Wait a moment for Varnish to start
@@ -662,27 +676,103 @@ sub start_services {
     $self->log("Service startup completed");
 }
 
+sub diagnose_varnish_failure {
+    my $self = shift;
+    
+    # Check VCL syntax
+    $self->log("Checking VCL syntax");
+    my $vcl_check = `varnishd -C -f /etc/varnish/default.vcl 2>&1`;
+    if ($? != 0) {
+        $self->log("VCL syntax error: $vcl_check");
+    } else {
+        $self->log("VCL syntax is valid");
+    }
+    
+    # Check port conflicts
+    $self->log("Checking for port conflicts");
+    my $port_check = `netstat -tlnp | grep :80`;
+    if ($port_check) {
+        $self->log("Port 80 conflicts found: $port_check");
+    } else {
+        $self->log("Port 80 is available");
+    }
+    
+    # Check systemd journal
+    $self->log("Checking systemd journal for Varnish errors");
+    my $journal = `journalctl -u varnish --no-pager -n 20 2>&1`;
+    $self->log("Varnish journal: $journal");
+    
+    # Check file permissions
+    $self->log("Checking Varnish file permissions");
+    my $perms = `ls -la /etc/varnish/ /var/lib/varnish/ 2>&1`;
+    $self->log("Varnish permissions: $perms");
+}
+
 sub check_service_status {
     my $self = shift;
+    
+    $self->log("=== Service Status Check ===");
     
     # Check Varnish
     my $varnish_status = `systemctl is-active varnish 2>/dev/null`;
     chomp $varnish_status;
-    $self->log("Varnish status: $varnish_status");
+    if ($varnish_status eq 'active') {
+        $self->log("✓ Varnish: RUNNING");
+    } else {
+        $self->log("✗ Varnish: $varnish_status");
+        $self->log("  Troubleshoot: systemctl status varnish");
+        $self->log("  Logs: journalctl -u varnish -f");
+    }
     
     # Check Hitch
     my $hitch_status = `systemctl is-active hitch 2>/dev/null`;
     chomp $hitch_status;
-    $self->log("Hitch status: $hitch_status");
+    if ($hitch_status eq 'active') {
+        $self->log("✓ Hitch: RUNNING");
+    } else {
+        $self->log("✗ Hitch: $hitch_status");
+        $self->log("  Troubleshoot: systemctl status hitch");
+        $self->log("  Logs: journalctl -u hitch -f");
+    }
     
     # Check Apache
     my $apache_status = `systemctl is-active httpd 2>/dev/null`;
     chomp $apache_status;
-    $self->log("Apache status: $apache_status");
+    if ($apache_status eq 'active') {
+        $self->log("✓ Apache: RUNNING");
+    } else {
+        $self->log("✗ Apache: $apache_status");
+        $self->log("  Troubleshoot: systemctl status httpd");
+    }
     
     # Check if ports are listening
-    my $port_check = `netstat -tlnp | grep -E ":($self->{varnish_port}|$self->{hitch_port}|$self->{apache_port}|$self->{apache_ssl_port}) "`;
-    $self->log("Port status:\n$port_check");
+    $self->log("=== Port Status ===");
+    my $port80 = `netstat -tlnp 2>/dev/null | grep ":80 "`;
+    my $port443 = `netstat -tlnp 2>/dev/null | grep ":443 "`;
+    my $port8080 = `netstat -tlnp 2>/dev/null | grep ":8080 "`;
+    my $port8443 = `netstat -tlnp 2>/dev/null | grep ":8443 "`;
+    
+    $port80 ? $self->log("✓ Port 80: $port80") : $self->log("✗ Port 80: Not listening");
+    $port443 ? $self->log("✓ Port 443: $port443") : $self->log("✗ Port 443: Not listening");
+    $port8080 ? $self->log("✓ Port 8080: $port8080") : $self->log("✗ Port 8080: Not listening");
+    $port8443 ? $self->log("✓ Port 8443: $port8443") : $self->log("✗ Port 8443: Not listening");
+    
+    # Provide recovery instructions
+    if ($varnish_status ne 'active' || $hitch_status ne 'active') {
+        $self->log("=== Recovery Instructions ===");
+        if ($varnish_status ne 'active') {
+            $self->log("To fix Varnish:");
+            $self->log("  1. Check configuration: varnishd -C -f /etc/varnish/default.vcl");
+            $self->log("  2. Start manually: systemctl start varnish");
+            $self->log("  3. Check logs: journalctl -u varnish");
+        }
+        if ($hitch_status ne 'active') {
+            $self->log("To fix Hitch:");
+            $self->log("  1. Test configuration: hitch --config=/etc/hitch/hitch.conf --test");
+            $self->log("  2. Start manually: systemctl start hitch");
+            $self->log("  3. Check logs: journalctl -u hitch");
+        }
+    }
 }
 
 sub log {

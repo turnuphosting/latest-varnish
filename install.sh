@@ -296,6 +296,27 @@ EOFHITCH
         
         echo "Varnish/Hitch installation completed!"
         echo "Check the installation log at: $INSTALL_LOG"
+        echo ""
+        
+        # Show service status
+        echo "=== Service Status ==="
+        if systemctl is-active --quiet varnish; then
+            echo "✓ Varnish: Running"
+        else
+            echo "⚠ Varnish: Not running (check logs: journalctl -u varnish)"
+        fi
+        
+        if systemctl is-active --quiet hitch; then
+            echo "✓ Hitch: Running"
+        else
+            echo "⚠ Hitch: Not running (may need SSL certificates)"
+        fi
+        
+        if systemctl is-active --quiet httpd; then
+            echo "✓ Apache: Running"
+        else
+            echo "⚠ Apache: Not running"
+        fi
     fi
 fi
 
