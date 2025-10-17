@@ -81,6 +81,19 @@ check_requirements() {
         fi
     done
     
+    # Check if we can create executable files (test for noexec mount)
+    local test_dir="/tmp/varnish-test-$$"
+    mkdir -p "$test_dir" 2>/dev/null || true
+    if [[ -d "$test_dir" ]]; then
+        echo '#!/bin/bash' > "$test_dir/test.sh"
+        if chmod +x "$test_dir/test.sh" 2>/dev/null && [[ -x "$test_dir/test.sh" ]]; then
+            info "✓ Executable permissions work correctly"
+        else
+            warn "⚠ Filesystem may be mounted with noexec - will use bash directly"
+        fi
+        rm -rf "$test_dir" 2>/dev/null || true
+    fi
+    
     log "System requirements check passed."
 }
 
@@ -119,23 +132,37 @@ download_files() {
 run_installation() {
     log "Starting Varnish + Hitch + Plugins installation..."
     
-    # Make all shell scripts executable
-    chmod +x *.sh
-    chmod +x install_*.sh
+    # Try to make all shell scripts executable (best effort)
+    chmod +x *.sh 2>/dev/null || warn "Could not set executable permissions (filesystem may be mounted noexec)"
+    chmod +x install_*.sh 2>/dev/null || true
     
-    # Verify the main installation script is executable
-    if [[ ! -x "install.sh" ]]; then
-        error "Failed to make install.sh executable"
+    # Verify the main installation script exists and is readable
+    if [[ ! -f "install.sh" ]]; then
+        error "install.sh not found in downloaded files"
     fi
+    
+    if [[ ! -r "install.sh" ]]; then
+        error "install.sh is not readable"
+    fi
+    
+    log "Installation script verified and ready to run"
     
     # Set environment variable for automated installation
     export AUTOMATED_INSTALL=1
     export INSTALL_OPTION=2  # Complete installation with Varnish + Hitch + Plugins
     
-    # Run the main installer with verbose output
+    # Run the main installer with bash directly (works even without execute permissions)
     log "Executing main installation script..."
-    if ! bash -x ./install.sh 2>&1 | tee -a "$LOG_FILE"; then
-        error "Installation failed. Check the log file at $LOG_FILE for details."
+    if [[ "${DEBUG:-0}" == "1" ]]; then
+        # Run with debug output
+        if ! bash -x install.sh 2>&1 | tee -a "$LOG_FILE"; then
+            error "Installation failed. Check the log file at $LOG_FILE for details."
+        fi
+    else
+        # Run normally
+        if ! bash install.sh 2>&1 | tee -a "$LOG_FILE"; then
+            error "Installation failed. Check the log file at $LOG_FILE for details."
+        fi
     fi
     
     log "Installation completed successfully!"
